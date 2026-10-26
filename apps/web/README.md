@@ -21,6 +21,8 @@ You can also run commands inside this folder with `npm run dev` if dependencies 
 2. Set **Root Directory** to `apps/web`.
 3. Framework preset: Next.js (defaults are fine).
 
+[`vercel.json`](./vercel.json) runs `npm ci` from the repo root so the workspace lockfile and Linux native Tailwind/lightningcss binaries install correctly on Vercel.
+
 ### Environment variables (optional)
 
 | Variable | Default | Purpose |
