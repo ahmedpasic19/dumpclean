@@ -33,6 +33,16 @@ function detectPlatform(): PlatformHint {
 }
 
 const serverHint: PlatformHint = { os: "unknown", arch: "unknown" };
+let clientHint: PlatformHint = serverHint;
+
+function getClientHint(): PlatformHint {
+  const next = detectPlatform();
+  if (clientHint.os === next.os && clientHint.arch === next.arch) {
+    return clientHint;
+  }
+  clientHint = next;
+  return clientHint;
+}
 
 function subscribePlatform() {
   return () => {};
@@ -48,7 +58,7 @@ function matchesHint(asset: ReleaseAsset, hint: PlatformHint): boolean {
 }
 
 export function DownloadSection({ assets, releaseUrl, tagName }: Props) {
-  const hint = useSyncExternalStore(subscribePlatform, detectPlatform, () => serverHint);
+  const hint = useSyncExternalStore(subscribePlatform, getClientHint, () => serverHint);
 
   const recommended = assets.find((a) => matchesHint(a, hint));
 
