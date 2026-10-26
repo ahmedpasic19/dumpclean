@@ -1,38 +1,40 @@
 # dumpclean
 
-Terminal tool to remove tables / views / functions / procedures / events from huge
-single-file MySQL dumps without loading them into memory.
+Monorepo for **dumpclean** — a terminal tool to remove tables, views, routines, and events from huge single-file MySQL dumps without loading them into memory — plus a small landing site with download links.
 
-## Build (Windows)
-1. Install Rust: https://rustup.rs
-2. `cargo build --release`
-3. Binary: `target\release\dumpclean.exe`
+| Package | Path | Description |
+|---------|------|-------------|
+| CLI | [`crates/dumpclean`](crates/dumpclean) | Rust TUI / non-interactive cleaner |
+| Web | [`apps/web`](apps/web) | Next.js landing page (Vercel) |
 
-## Run
-    dumpclean dump.sql
-    dumpclean dump.sql --mysql-args "-h 127.0.0.1 -u root mydb"   (enables test import, key t)
+## CLI (quick start)
 
-Password: `set MYSQL_PWD=secret` before starting, or add `--defaults-extra-file=C:\path\my.cnf` to --mysql-args.
+```bash
+cd crates/dumpclean
+cargo build --release
+# Windows: target\release\dumpclean.exe
+# Unix:     target/release/dumpclean
+```
 
-## Keys
+Full usage, key bindings, and flags: [crates/dumpclean/README.md](crates/dumpclean/README.md).
 
-| Key | Action |
-|-----|--------|
-| ↑↓ PgUp PgDn Home End | move |
-| Space | mark/unmark (moves down) |
-| a | mark all visible |
-| u | unmark all |
-| / | filter by name |
-| s | cycle sort: file order, size, lines, name |
-| t | test import |
-| r | show last test results |
-| w | write |
-| q | quit |
+## Web (local dev)
 
-Source of truth: `src/keys.rs` (also shown in `dumpclean --help` and the TUI footer).
+From the repo root:
 
-## Non-interactive
-    dumpclean dump.sql --list
-    dumpclean dump.sql --remove tbl1,tbl2 --out cleaned.sql
-    dumpclean dump.sql --remove tbl1,tbl2 --in-place
-    dumpclean dump.sql --test --exclude tbl1 --mysql-args "-u root mydb"
+```bash
+npm install
+npm run dev
+```
+
+See [apps/web/README.md](apps/web/README.md) for Vercel deployment and environment variables.
+
+## Releases
+
+1. Bump `version` in `crates/dumpclean/Cargo.toml`.
+2. Commit and push to `main`.
+3. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`
+4. GitHub Actions builds Windows, Linux, and macOS (x64 + Apple Silicon) binaries and attaches them to the GitHub Release.
+5. The landing page picks up the latest release automatically.
+
+Pre-built downloads: [GitHub Releases](https://github.com/ahmedpasic19/dumpclean/releases).

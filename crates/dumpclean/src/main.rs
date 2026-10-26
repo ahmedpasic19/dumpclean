@@ -53,7 +53,16 @@ struct Args {
 
 fn parse_args() -> Result<Args> {
     let mut it = std::env::args().skip(1);
-    let mut a = Args { path: PathBuf::new(), mysql_args: vec![], list: false, test: false, remove: vec![], exclude: vec![], in_place: false, out: None };
+    let mut a = Args {
+        path: PathBuf::new(),
+        mysql_args: vec![],
+        list: false,
+        test: false,
+        remove: vec![],
+        exclude: vec![],
+        in_place: false,
+        out: None,
+    };
     let mut path = None;
     while let Some(arg) = it.next() {
         match arg.as_str() {
@@ -62,7 +71,12 @@ fn parse_args() -> Result<Args> {
                 std::process::exit(0);
             }
             "--mysql-args" => {
-                a.mysql_args = it.next().context("--mysql-args needs a value")?.split_whitespace().map(String::from).collect()
+                a.mysql_args = it
+                    .next()
+                    .context("--mysql-args needs a value")?
+                    .split_whitespace()
+                    .map(String::from)
+                    .collect()
             }
             "--list" => a.list = true,
             "--test" => a.test = true,
@@ -76,7 +90,13 @@ fn parse_args() -> Result<Args> {
                     .collect()
             }
             "--exclude" => {
-                a.exclude = it.next().context("--exclude needs a value")?.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+                a.exclude = it
+                    .next()
+                    .context("--exclude needs a value")?
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
             }
             "--in-place" => a.in_place = true,
             "--out" => a.out = Some(PathBuf::from(it.next().context("--out needs a value")?)),
@@ -126,17 +146,31 @@ fn fmt_size(b: u64) -> String {
 fn centered(area: Rect, w: u16, h: u16) -> Rect {
     let w = w.min(area.width);
     let h = h.min(area.height);
-    Rect::new(area.x + (area.width - w) / 2, area.y + (area.height - h) / 2, w, h)
+    Rect::new(
+        area.x + (area.width - w) / 2,
+        area.y + (area.height - h) / 2,
+        w,
+        h,
+    )
 }
 
 fn draw_busy(f: &mut Frame, title: &str, done: u64, total: u64) {
     let area = centered(f.area(), 64, 5);
     f.render_widget(Clear, area);
-    let ratio = if total == 0 { 0.0 } else { (done as f64 / total as f64).clamp(0.0, 1.0) };
+    let ratio = if total == 0 {
+        0.0
+    } else {
+        (done as f64 / total as f64).clamp(0.0, 1.0)
+    };
     let g = Gauge::default()
         .block(Block::bordered().title(format!(" {title} ")))
         .ratio(ratio)
-        .label(format!("{:.0}%  ({} / {})", ratio * 100.0, fmt_size(done), fmt_size(total)))
+        .label(format!(
+            "{:.0}%  ({} / {})",
+            ratio * 100.0,
+            fmt_size(done),
+            fmt_size(total)
+        ))
         .gauge_style(Style::new().fg(Color::Cyan));
     f.render_widget(g, area);
 }
@@ -210,14 +244,17 @@ struct App {
 
 impl App {
     fn selected_item(&self) -> Option<usize> {
-        self.state.selected().and_then(|i| self.view.get(i).copied())
+        self.state
+            .selected()
+            .and_then(|i| self.view.get(i).copied())
     }
 
     fn rebuild_view(&mut self, keep: Option<usize>) {
         let f = self.filter.to_lowercase();
         let items = &self.idx.items;
-        let mut v: Vec<usize> =
-            (0..items.len()).filter(|&i| f.is_empty() || items[i].name.to_lowercase().contains(&f)).collect();
+        let mut v: Vec<usize> = (0..items.len())
+            .filter(|&i| f.is_empty() || items[i].name.to_lowercase().contains(&f))
+            .collect();
         match self.sort {
             Sort::File => {}
             Sort::Size => v.sort_by_key(|&i| std::cmp::Reverse(items[i].bytes)),
@@ -227,7 +264,10 @@ impl App {
         self.view = v;
         let pos = keep
             .and_then(|k| self.view.iter().position(|&i| i == k))
-            .or_else(|| (!self.view.is_empty()).then(|| self.state.selected().unwrap_or(0).min(self.view.len() - 1)));
+            .or_else(|| {
+                (!self.view.is_empty())
+                    .then(|| self.state.selected().unwrap_or(0).min(self.view.len() - 1))
+            });
         self.state.select(pos);
     }
 
@@ -246,20 +286,29 @@ impl App {
     }
 
     fn marked(&self) -> (usize, u64, u64) {
-        self.idx.items.iter().filter(|i| i.marked).fold((0, 0, 0), |(n, b, l), i| (n + 1, b + i.bytes, l + i.lines))
+        self.idx
+            .items
+            .iter()
+            .filter(|i| i.marked)
+            .fold((0, 0, 0), |(n, b, l), i| (n + 1, b + i.bytes, l + i.lines))
     }
 
     // ----- drawing -----
 
     fn draw(&mut self, f: &mut Frame) {
-        let [main, footer] = Layout::vertical([Constraint::Min(5), Constraint::Length(4)]).areas(f.area());
+        let [main, footer] =
+            Layout::vertical([Constraint::Min(5), Constraint::Length(4)]).areas(f.area());
 
         let rows: Vec<Row> = self
             .view
             .iter()
             .map(|&i| {
                 let it = &self.idx.items[i];
-                let test = self.failed.get(&i).map(|n| format!("✗ {} err", fmt_num(*n))).unwrap_or_default();
+                let test = self
+                    .failed
+                    .get(&i)
+                    .map(|n| format!("✗ {} err", fmt_num(*n)))
+                    .unwrap_or_default();
                 let mut row = Row::new(vec![
                     Cell::from(if it.marked { "[x]" } else { "[ ]" }),
                     Cell::from(it.kind.label()),
@@ -269,7 +318,11 @@ impl App {
                     Cell::from(test),
                 ]);
                 if it.marked {
-                    row = row.style(Style::new().fg(Color::Red).add_modifier(Modifier::CROSSED_OUT));
+                    row = row.style(
+                        Style::new()
+                            .fg(Color::Red)
+                            .add_modifier(Modifier::CROSSED_OUT),
+                    );
                 } else if self.failed.contains_key(&i) {
                     row = row.style(Style::new().fg(Color::Yellow));
                 }
@@ -287,7 +340,10 @@ impl App {
         ];
         let title = format!(
             " {} — {} items, {} lines, {} ",
-            self.path.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(),
+            self.path
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default(),
             fmt_num(self.idx.items.len() as u64),
             fmt_num(self.idx.total_lines),
             fmt_size(self.idx.total_bytes)
@@ -304,7 +360,10 @@ impl App {
         // footer
         let (n, bytes, lines) = self.marked();
         let line1 = if self.mode == Mode::Filter {
-            Line::from(format!(" Filter: {}█   (Enter keep, Esc clear)", self.filter))
+            Line::from(format!(
+                " Filter: {}█   (Enter keep, Esc clear)",
+                self.filter
+            ))
         } else if !self.status.is_empty() {
             Line::from(format!(" {}", self.status)).style(Style::new().fg(Color::Green))
         } else {
@@ -315,11 +374,18 @@ impl App {
                 self.view.len(),
                 self.idx.items.len(),
                 self.sort.label(),
-                if self.filter.is_empty() { String::new() } else { format!(" · filter: {}", self.filter) }
+                if self.filter.is_empty() {
+                    String::new()
+                } else {
+                    format!(" · filter: {}", self.filter)
+                }
             ))
         };
         let line2 = Line::from(keys::FOOTER).style(Style::new().fg(Color::DarkGray));
-        f.render_widget(Paragraph::new(vec![line1, line2]).block(Block::bordered()), footer);
+        f.render_widget(
+            Paragraph::new(vec![line1, line2]).block(Block::bordered()),
+            footer,
+        );
 
         // popups
         match self.mode {
@@ -329,7 +395,10 @@ impl App {
                     f,
                     " Write ",
                     vec![
-                        Line::from(format!("{n} items marked, {} will be removed.", fmt_size(bytes))),
+                        Line::from(format!(
+                            "{n} items marked, {} will be removed.",
+                            fmt_size(bytes)
+                        )),
                         Line::from(""),
                         Line::from(format!("[n]  write new file  {}", out.display())),
                         Line::from("     (original stays untouched, needs free disk space)"),
@@ -345,7 +414,10 @@ impl App {
                 f,
                 " Rewrite file in place? ",
                 vec![
-                    Line::from(format!("{} will be modified directly.", self.path.display())),
+                    Line::from(format!(
+                        "{} will be modified directly.",
+                        self.path.display()
+                    )),
                     Line::from("If the process is killed or the PC loses power halfway,"),
                     Line::from("the file is corrupted. Back it up first if unsure."),
                     Line::from(""),
@@ -357,7 +429,10 @@ impl App {
             Mode::ConfirmQuit => self.popup(
                 f,
                 " Quit? ",
-                vec![Line::from(format!("{n} marked items have not been written.")), Line::from("[y] quit   [any other key] stay")],
+                vec![
+                    Line::from(format!("{n} marked items have not been written.")),
+                    Line::from("[y] quit   [any other key] stay"),
+                ],
                 50,
                 6,
             ),
@@ -382,32 +457,64 @@ impl App {
     fn popup(&self, f: &mut Frame, title: &str, lines: Vec<Line>, w: u16, h: u16) {
         let area = centered(f.area(), w, h);
         f.render_widget(Clear, area);
-        f.render_widget(Paragraph::new(lines).block(Block::bordered().title(title)).wrap(Wrap { trim: false }), area);
+        f.render_widget(
+            Paragraph::new(lines)
+                .block(Block::bordered().title(title))
+                .wrap(Wrap { trim: false }),
+            area,
+        );
     }
 
     fn draw_results(&self, f: &mut Frame) {
-        let area = centered(f.area(), f.area().width.saturating_sub(4), f.area().height.saturating_sub(2));
+        let area = centered(
+            f.area(),
+            f.area().width.saturating_sub(4),
+            f.area().height.saturating_sub(2),
+        );
         f.render_widget(Clear, area);
         let mut lines: Vec<Line> = Vec::new();
         if let Some(r) = &self.results {
             let head = format!(
                 "Import {}. {} item(s) with errors.",
-                if r.aborted { "aborted early" } else if r.exit_ok { "finished" } else { "finished with errors" },
+                if r.aborted {
+                    "aborted early"
+                } else if r.exit_ok {
+                    "finished"
+                } else {
+                    "finished with errors"
+                },
                 r.groups.len()
             );
             lines.push(Line::from(head).style(Style::new().add_modifier(Modifier::BOLD)));
             lines.push(Line::from(""));
             for g in &r.groups {
                 let title = match g.owner {
-                    Some(o) => format!("✗ {} {}   ({} errors)", self.idx.items[o].kind.label(), self.idx.items[o].name, fmt_num(g.count)),
-                    None => format!("✗ outside any table/view/routine (header/footer)   ({} errors)", fmt_num(g.count)),
+                    Some(o) => format!(
+                        "✗ {} {}   ({} errors)",
+                        self.idx.items[o].kind.label(),
+                        self.idx.items[o].name,
+                        fmt_num(g.count)
+                    ),
+                    None => format!(
+                        "✗ outside any table/view/routine (header/footer)   ({} errors)",
+                        fmt_num(g.count)
+                    ),
                 };
-                lines.push(Line::from(title).style(Style::new().fg(Color::Red).add_modifier(Modifier::BOLD)));
-                lines.push(Line::from(format!("    {}", g.first.chars().take(400).collect::<String>())));
+                lines.push(
+                    Line::from(title)
+                        .style(Style::new().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                );
+                lines.push(Line::from(format!(
+                    "    {}",
+                    g.first.chars().take(400).collect::<String>()
+                )));
             }
             if !r.other.is_empty() {
                 lines.push(Line::from(""));
-                lines.push(Line::from("Other mysql output:").style(Style::new().add_modifier(Modifier::BOLD)));
+                lines.push(
+                    Line::from("Other mysql output:")
+                        .style(Style::new().add_modifier(Modifier::BOLD)),
+                );
                 for o in &r.other {
                     lines.push(Line::from(format!("    {o}")));
                 }
@@ -415,10 +522,14 @@ impl App {
         }
         lines.push(Line::from(""));
         lines.push(
-            Line::from("↑↓ scroll   m mark all failing items for removal   Esc back").style(Style::new().fg(Color::DarkGray)),
+            Line::from("↑↓ scroll   m mark all failing items for removal   Esc back")
+                .style(Style::new().fg(Color::DarkGray)),
         );
         f.render_widget(
-            Paragraph::new(lines).block(Block::bordered().title(" Test import results ")).wrap(Wrap { trim: false }).scroll((self.scroll, 0)),
+            Paragraph::new(lines)
+                .block(Block::bordered().title(" Test import results "))
+                .wrap(Wrap { trim: false })
+                .scroll((self.scroll, 0)),
             area,
         );
     }
@@ -562,10 +673,19 @@ impl App {
 
     fn save_new(&mut self, term: &mut DefaultTerminal) {
         let out = default_out(&self.path);
-        let res = ops::write_new(&self.path, &out, &self.idx, busy(term, "Writing cleaned dump"));
+        let res = ops::write_new(
+            &self.path,
+            &out,
+            &self.idx,
+            busy(term, "Writing cleaned dump"),
+        );
         self.mode = Mode::Normal;
         self.status = match res {
-            Ok(sz) => format!("Wrote {} ({}). Original untouched.", out.display(), fmt_size(sz)),
+            Ok(sz) => format!(
+                "Wrote {} ({}). Original untouched.",
+                out.display(),
+                fmt_size(sz)
+            ),
             Err(e) => format!("Error: {e}"),
         };
     }
@@ -591,7 +711,12 @@ impl App {
 
     fn run_test(&mut self, term: &mut DefaultTerminal) {
         self.mode = Mode::Normal;
-        let res = ops::test_import(&self.path, &self.idx, &self.mysql_args, busy(term, "Importing into MySQL (--force)"));
+        let res = ops::test_import(
+            &self.path,
+            &self.idx,
+            &self.mysql_args,
+            busy(term, "Importing into MySQL (--force)"),
+        );
         match res {
             Ok(r) => {
                 self.failed.clear();
@@ -646,11 +771,19 @@ fn run(term: &mut DefaultTerminal, args: Args) -> Result<()> {
 }
 
 fn headless(a: &Args) -> Result<()> {
-    let mut idx = index::build_index(&a.path, |d, t| eprint!("\rIndexing {:>3}%", d * 100 / t.max(1)))?;
+    let mut idx = index::build_index(&a.path, |d, t| {
+        eprint!("\rIndexing {:>3}%", d * 100 / t.max(1))
+    })?;
     eprintln!("\rIndexing done.    ");
     if a.list {
         for it in &idx.items {
-            println!("{}\t{}\t{}\t{}", it.kind.label(), it.name, it.lines, it.bytes);
+            println!(
+                "{}\t{}\t{}\t{}",
+                it.kind.label(),
+                it.name,
+                it.lines,
+                it.bytes
+            );
         }
     }
     if a.test {
@@ -660,11 +793,19 @@ fn headless(a: &Args) -> Result<()> {
         for it in idx.items.iter_mut().filter(|i| a.exclude.contains(&i.name)) {
             it.marked = true;
         }
-        let r = ops::test_import(&a.path, &idx, &a.mysql_args, |d, t| eprint!("\rImporting {:>3}%", d * 100 / t.max(1)))?;
+        let r = ops::test_import(&a.path, &idx, &a.mysql_args, |d, t| {
+            eprint!("\rImporting {:>3}%", d * 100 / t.max(1))
+        })?;
         eprintln!();
         for g in &r.groups {
             match g.owner {
-                Some(o) => println!("{}\t{}\t{} errors\t{}", idx.items[o].kind.label(), idx.items[o].name, g.count, g.first),
+                Some(o) => println!(
+                    "{}\t{}\t{} errors\t{}",
+                    idx.items[o].kind.label(),
+                    idx.items[o].name,
+                    g.count,
+                    g.first
+                ),
                 None => println!("(outside items)\t{} errors\t{}", g.count, g.first),
             }
         }

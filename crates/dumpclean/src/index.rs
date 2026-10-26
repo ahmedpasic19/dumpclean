@@ -77,7 +77,10 @@ impl Index {
     }
 
     pub fn first_removed_start(&self) -> Option<u64> {
-        self.segments.iter().find(|s| self.is_removed(s)).map(|s| s.start)
+        self.segments
+            .iter()
+            .find(|s| self.is_removed(s))
+            .map(|s| s.start)
     }
 
     /// Maps a line number of the *cleaned* stream back to the owning item.
@@ -213,7 +216,13 @@ fn close(
         return;
     }
     let idx = segments.len();
-    segments.push(Segment { start, end, line, lines, owner });
+    segments.push(Segment {
+        start,
+        end,
+        line,
+        lines,
+        owner,
+    });
     if let Some(o) = owner {
         let it = &mut items[o];
         it.segs.push(idx);
@@ -225,7 +234,10 @@ fn close(
 pub fn build_index(path: &Path, mut progress: impl FnMut(u64, u64)) -> io::Result<Index> {
     let file = File::open(path)?;
     let total = file.metadata()?.len();
-    let mut sc = LineScanner { r: BufReader::with_capacity(BUF, file), offset: 0 };
+    let mut sc = LineScanner {
+        r: BufReader::with_capacity(BUF, file),
+        offset: 0,
+    };
     let mut head: Vec<u8> = Vec::with_capacity(HEAD_MAX);
 
     let mut segments: Vec<Segment> = Vec::new();
@@ -246,7 +258,14 @@ pub fn build_index(path: &Path, mut progress: impl FnMut(u64, u64)) -> io::Resul
                 Boundary::Item(kind, name, up) => {
                     let key = (kind, name.clone());
                     let id = *lookup.entry(key).or_insert_with(|| {
-                        items.push(Item { kind, name, segs: vec![], lines: 0, bytes: 0, marked: false });
+                        items.push(Item {
+                            kind,
+                            name,
+                            segs: vec![],
+                            lines: 0,
+                            bytes: 0,
+                            marked: false,
+                        });
                         items.len() - 1
                     });
                     (Some(id), up)
@@ -255,13 +274,24 @@ pub fn build_index(path: &Path, mut progress: impl FnMut(u64, u64)) -> io::Resul
             };
             if !(new_owner.is_none() && seg_owner.is_none()) {
                 // The `--` line above a marker is part of the new block.
-                let (bstart, bline) =
-                    if use_prev && prev_dashes && prev_start >= seg_start && prev_line >= seg_line {
-                        (prev_start, prev_line)
-                    } else {
-                        (start, line_no)
-                    };
-                close(&mut segments, &mut items, seg_start, bstart, seg_line, bline - seg_line, seg_owner);
+                let (bstart, bline) = if use_prev
+                    && prev_dashes
+                    && prev_start >= seg_start
+                    && prev_line >= seg_line
+                {
+                    (prev_start, prev_line)
+                } else {
+                    (start, line_no)
+                };
+                close(
+                    &mut segments,
+                    &mut items,
+                    seg_start,
+                    bstart,
+                    seg_line,
+                    bline - seg_line,
+                    seg_owner,
+                );
                 seg_start = bstart;
                 seg_line = bline;
                 seg_owner = new_owner;
@@ -277,8 +307,21 @@ pub fn build_index(path: &Path, mut progress: impl FnMut(u64, u64)) -> io::Resul
             last_report = sc.offset;
         }
     }
-    close(&mut segments, &mut items, seg_start, sc.offset, seg_line, line_no + 1 - seg_line, seg_owner);
+    close(
+        &mut segments,
+        &mut items,
+        seg_start,
+        sc.offset,
+        seg_line,
+        line_no + 1 - seg_line,
+        seg_owner,
+    );
     progress(total, total);
 
-    Ok(Index { segments, items, total_bytes: sc.offset, total_lines: line_no })
+    Ok(Index {
+        segments,
+        items,
+        total_bytes: sc.offset,
+        total_lines: line_no,
+    })
 }

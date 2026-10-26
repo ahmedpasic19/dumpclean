@@ -40,9 +40,17 @@ fn compact(
     Ok(wpos)
 }
 
-pub fn write_new(src: &Path, dst: &Path, idx: &Index, progress: impl FnMut(u64, u64)) -> io::Result<u64> {
+pub fn write_new(
+    src: &Path,
+    dst: &Path,
+    idx: &Index,
+    progress: impl FnMut(u64, u64),
+) -> io::Result<u64> {
     if src == dst {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "output path equals input path"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "output path equals input path",
+        ));
     }
     let mut r = File::open(src)?;
     let mut w = File::create(dst)?;
@@ -58,7 +66,11 @@ pub fn write_in_place(src: &Path, idx: &Index, progress: impl FnMut(u64, u64)) -
     let first = idx
         .first_removed_start()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "nothing to remove"))?;
-    let keep: Vec<(u64, u64)> = idx.kept_ranges().into_iter().filter(|&(s, _)| s >= first).collect();
+    let keep: Vec<(u64, u64)> = idx
+        .kept_ranges()
+        .into_iter()
+        .filter(|&(s, _)| s >= first)
+        .collect();
     let mut r = File::open(src)?;
     let mut w = OpenOptions::new().write(true).open(src)?;
     let end = compact(&mut r, &mut w, &keep, first, progress)?;
@@ -87,10 +99,16 @@ fn parse_err(s: &str) -> Option<(u64, String)> {
     let after = &rest[at + 9..];
     let colon = after.find(':')?;
     let line: u64 = after[..colon].trim().parse().ok()?;
-    Some((line, format!("{}: {}", &rest[..at], after[colon + 1..].trim())))
+    Some((
+        line,
+        format!("{}: {}", &rest[..at], after[colon + 1..].trim()),
+    ))
 }
 
-fn collect_errors(stderr: ChildStderr, map: Vec<(u64, Option<usize>)>) -> (Vec<ErrGroup>, Vec<String>) {
+fn collect_errors(
+    stderr: ChildStderr,
+    map: Vec<(u64, Option<usize>)>,
+) -> (Vec<ErrGroup>, Vec<String>) {
     let mut groups: Vec<ErrGroup> = Vec::new();
     let mut pos: HashMap<Option<usize>, usize> = HashMap::new();
     let mut other: Vec<String> = Vec::new();
@@ -105,7 +123,11 @@ fn collect_errors(stderr: ChildStderr, map: Vec<(u64, Option<usize>)>) -> (Vec<E
                 let k = map.partition_point(|&(st, _)| st <= line);
                 let owner = if k == 0 { None } else { map[k - 1].1 };
                 let gi = *pos.entry(owner).or_insert_with(|| {
-                    groups.push(ErrGroup { owner, count: 0, first: msg.clone() });
+                    groups.push(ErrGroup {
+                        owner,
+                        count: 0,
+                        first: msg.clone(),
+                    });
                     groups.len() - 1
                 });
                 groups[gi].count += 1;
@@ -139,7 +161,12 @@ pub fn test_import(
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| io::Error::new(e.kind(), format!("could not start `mysql`: {e} (is mysql.exe on PATH?)")))?;
+        .map_err(|e| {
+            io::Error::new(
+                e.kind(),
+                format!("could not start `mysql`: {e} (is mysql.exe on PATH?)"),
+            )
+        })?;
 
     let stderr = child.stderr.take().unwrap();
     let reader = thread::spawn(move || collect_errors(stderr, map));
@@ -168,5 +195,10 @@ pub fn test_import(
     let (groups, other) = reader
         .join()
         .map_err(|_| io::Error::new(io::ErrorKind::Other, "stderr reader thread panicked"))?;
-    Ok(TestResult { groups, other, aborted, exit_ok: status.success() })
+    Ok(TestResult {
+        groups,
+        other,
+        aborted,
+        exit_ok: status.success(),
+    })
 }
