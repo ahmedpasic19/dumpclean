@@ -1,8 +1,8 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { ReleaseAsset } from "@/lib/releases";
-import { formatBytes } from "@/lib/releases";
+import { formatBytes } from "@/lib/formatBytes";
+import type { ReleaseAsset } from "@/lib/release-asset";
 
 type Props = {
   assets: ReleaseAsset[];

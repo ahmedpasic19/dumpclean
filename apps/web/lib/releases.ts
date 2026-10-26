@@ -1,11 +1,6 @@
-export type ReleaseAsset = {
-  os: "windows" | "linux" | "macos" | "unknown";
-  arch: "x86_64" | "aarch64" | "unknown";
-  url: string;
-  name: string;
-  size: number;
-  label: string;
-};
+import type { ReleaseAsset } from "@/lib/release-asset";
+
+export type { ReleaseAsset } from "@/lib/release-asset";
 
 export type LatestRelease = {
   tagName: string;
@@ -115,10 +110,4 @@ export async function fetchLatestRelease(): Promise<LatestRelease | null> {
     body: data.body,
     assets,
   };
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
